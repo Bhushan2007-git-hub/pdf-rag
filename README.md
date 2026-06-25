@@ -1,4 +1,4 @@
-# PDF RAG — Q&A
+# PDF RAG - Q&A
 
 A Retrieval-Augmented Generation (RAG) app that answers questions strictly based on uploaded PDF documents. Built with FastAPI, BM25, and Groq (Llama 3.3).
 
