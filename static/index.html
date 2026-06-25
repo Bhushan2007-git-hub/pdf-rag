@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDF RAG </title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3347;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --accent: #4f8ef7;
+    --accent-dim: #1e2d4a;
+    --success: #34d399;
+    --danger: #f87171;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+  }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  header p  { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+  /* ── Layout ── */
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    width: 240px;
+    min-width: 240px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+  }
+  aside h2 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #drop-zone {
+    margin: 12px;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 18px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  #drop-zone:hover, #drop-zone.over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  #drop-zone svg { display: block; margin: 0 auto 8px; opacity: 0.5; }
+  #drop-zone p  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  #drop-zone span { color: var(--accent); }
+  #file-input { display: none; }
+
+  #doc-list { flex: 1; overflow-y: auto; padding: 4px 10px 10px; }
+  .doc-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    margin-bottom: 3px;
+    background: var(--surface2);
+  }
+  .doc-row .icon { font-size: 15px; flex-shrink: 0; color: var(--danger); }
+  .doc-name { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc-chunks { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .doc-del {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 16px; padding: 1px 3px;
+    border-radius: 4px; line-height: 1;
+  }
+  .doc-del:hover { color: var(--danger); }
+
+  /* ── Chat panel ── */
+  #chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  #chat-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); border: 1.5px solid var(--muted); }
+  .dot.on { background: var(--success); border-color: var(--success); }
+  #doc-count { font-size: 11px; background: var(--accent-dim); color: var(--accent); padding: 2px 9px; border-radius: 20px; margin-left: auto; }
+  #clear-btn {
+    font-size: 12px; background: none; border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; padding: 3px 10px; border-radius: 6px;
+  }
+  #clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    gap: 10px;
+    text-align: center;
+    padding: 30px;
+  }
+  #empty svg { opacity: 0.25; }
+  #empty p { font-size: 13px; max-width: 200px; line-height: 1.6; }
+
+  .msg { max-width: 86%; }
+  .msg.user { align-self: flex-end; }
+  .msg.assistant { align-self: flex-start; }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user .bubble {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 12px 12px 3px 12px;
+  }
+  .msg.assistant .bubble {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px 12px 12px 3px;
+  }
+
+  .plog {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    line-height: 2;
+    max-width: 86%;
+    align-self: flex-start;
+  }
+  .pstep { display: flex; align-items: center; gap: 7px; }
+  .pstep.done  .icon-step { color: var(--success); }
+  .pstep.active .icon-step { color: var(--accent); animation: spin 1s linear infinite; }
+  .pstep.pending { opacity: 0.3; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .sources {
+    margin-top: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 9px;
+  }
+
+  /* ── Input ── */
+  #input-bar {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  #qinput {
+    flex: 1;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 13px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface2);
+    color: var(--text);
+    min-height: 42px;
+    max-height: 100px;
+    outline: none;
+    line-height: 1.5;
+  }
+  #qinput:focus { border-color: var(--accent); }
+  #qinput::placeholder { color: var(--muted); }
+  #sbtn {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    border-radius: 10px;
+    width: 42px;
+    height: 42px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 18px;
+  }
+  #sbtn:hover { opacity: 0.85; }
+  #sbtn:disabled { opacity: 0.35; cursor: default; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+  <h1>PDF RAG</h1>
+  <p>Powered by Claude + BM25</p>
+</header>
+
+<main>
+  <aside>
+    <h2>📄 Documents</h2>
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      <p>Drop PDFs here or <span>browse</span></p>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" multiple />
+    <div id="doc-list"></div>
+  </aside>
+
+  <section id="chat">
+    <div id="chat-header">
+      <div class="dot" id="status-dot"></div>
+      <span>PDF Q&amp;A</span>
+      <span id="doc-count">0 docs</span>
+      <button id="clear-btn" onclick="clearChat()">Clear chat</button>
+    </div>
+    <div id="messages">
+      <div id="empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <p>Upload PDF documents then ask anything about their content.</p>
+      </div>
+    </div>
+    <div id="input-bar">
+      <textarea id="qinput" placeholder="Ask a question about your documents…" rows="1" disabled></textarea>
+      <button id="sbtn" disabled onclick="send()">↑</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = '';   // empty = same origin (FastAPI serves this file)
+let docCount = 0;
+let busy = false;
+
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const docList   = document.getElementById('doc-list');
+const msgs      = document.getElementById('messages');
+const qinput    = document.getElementById('qinput');
+const sbtn      = document.getElementById('sbtn');
+
+// ── Drag & drop ──────────────────────────────────────────────────────────────
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', e => { handleFiles(e.target.files); fileInput.value = ''; });
+
+qinput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+qinput.addEventListener('input', () => { qinput.style.height = 'auto'; qinput.style.height = Math.min(qinput.scrollHeight, 100) + 'px'; });
+
+// ── Upload ───────────────────────────────────────────────────────────────────
+async function handleFiles(files) {
+  for (const f of files) {
+    if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+    await uploadFile(f);
+  }
+}
+
+async function uploadFile(file) {
+  const row = addDocRow(file.name, '…');
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch(`${API}/upload`, { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Upload failed');
+    row.querySelector('.doc-chunks').textContent = data.chunks + ' chunks';
+    docCount++;
+    updateUI();
+  } catch(e) {
+    row.querySelector('.doc-chunks').textContent = 'error';
+    console.error(e);
+  }
+}
+
+function addDocRow(name, status) {
+  const el = document.createElement('div');
+  el.className = 'doc-row';
+  el.dataset.name = name;
+  el.innerHTML = `
+    <span class="icon">📄</span>
+    <span class="doc-name" title="${name}">${name}</span>
+    <span class="doc-chunks">${status}</span>
+    <button class="doc-del" onclick="removeDoc('${name.replace(/'/g,"\\'")}', this.closest('.doc-row'))">×</button>`;
+  docList.appendChild(el);
+  return el;
+}
+
+async function removeDoc(name, el) {
+  await fetch(`${API}/doc/${encodeURIComponent(name)}`, { method: 'DELETE' });
+  el.remove();
+  docCount = Math.max(0, docCount - 1);
+  updateUI();
+}
+
+function updateUI() {
+  const ready = docCount > 0 && !busy;
+  qinput.disabled = !ready;
+  sbtn.disabled   = !ready;
+  document.getElementById('status-dot').className = 'dot' + (docCount > 0 ? ' on' : '');
+  document.getElementById('doc-count').textContent = docCount + (docCount === 1 ? ' doc' : ' docs');
+  const empty = document.getElementById('empty');
+  if (docCount > 0 && empty) empty.remove();
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+function addBubble(role, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.textContent = text;
+  div.appendChild(b);
+  msgs.appendChild(div);
+  scroll();
+  return { div, bubble: b };
+}
+
+function addLog(steps) {
+  const el = document.createElement('div');
+  el.className = 'plog';
+  renderLog(el, steps);
+  msgs.appendChild(el);
+  scroll();
+  return el;
+}
+
+function renderLog(el, steps) {
+  el.innerHTML = steps.map(s => {
+    const icons = { done: '✓', active: '◌', pending: '○' };
+    return `<div class="pstep ${s.state}"><span class="icon-step">${icons[s.state]}</span>${s.label}</div>`;
+  }).join('');
+}
+
+function addSources(parentDiv, sources) {
+  if (!sources.length) return;
+  const sc = document.createElement('div');
+  sc.className = 'sources';
+  [...new Set(sources.map(s => s.doc))].forEach(d => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.textContent = '📄 ' + d;
+    sc.appendChild(chip);
+  });
+  parentDiv.appendChild(sc);
+}
+
+function scroll() { msgs.scrollTop = msgs.scrollHeight; }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function clearChat() { msgs.innerHTML = ''; }
+
+async function send() {
+  const q = qinput.value.trim();
+  if (!q || busy || docCount === 0) return;
+  busy = true;
+  updateUI();
+  qinput.value = '';
+  qinput.style.height = 'auto';
+
+  addBubble('user', q);
+
+  const steps = [
+    { label: 'Parsing query',                state: 'active' },
+    { label: 'BM25 retrieval across chunks', state: 'pending' },
+    { label: 'Building context window',      state: 'pending' },
+    { label: 'Generating answer with Claude',state: 'pending' },
+  ];
+  const logEl = addLog(steps);
+  await sleep(200);
+
+  steps[0].state = 'done'; steps[1].state = 'active';
+  renderLog(logEl, steps);
+  await sleep(200);
+
+  steps[1].state = 'done'; steps[2].state = 'active';
+  renderLog(logEl, steps);
+  await sleep(150);
+
+  steps[2].state = 'done'; steps[3].state = 'active';
+  renderLog(logEl, steps);
+
+  const { div: msgDiv, bubble } = addBubble('assistant', '');
+  let sources = [];
+
+  try {
+    const res = await fetch(`${API}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      bubble.textContent = 'Error: ' + (err.detail || res.statusText);
+    } else {
+      const reader = res.body.getReader();
+      const dec    = new TextDecoder();
+      let buf = '';
+      let answer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (line.startsWith('event: sources')) continue;
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(raw);
+            // source metadata event
+            if (Array.isArray(parsed)) { sources = parsed; continue; }
+            if (parsed.text !== undefined) {
+              answer += parsed.text;
+              bubble.textContent = answer;
+              scroll();
+            }
+          } catch {}
+        }
+      }
+
+      steps[3].state = 'done';
+      renderLog(logEl, steps);
+      addSources(msgDiv, sources);
+    }
+  } catch(e) {
+    bubble.textContent = 'Network error: ' + e.message;
+  }
+
+  busy = false;
+  updateUI();
+  scroll();
+}
+</script>
+</body>
+</html>
