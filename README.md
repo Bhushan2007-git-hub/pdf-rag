@@ -9,9 +9,9 @@ A Retrieval-Augmented Generation (RAG) app that answers questions strictly based
 4. Llama 3.3 (via Groq) answers using only those chunks
 
 ## Tech Stack
-- **Backend** — FastAPI, PyMuPDF, BM25
-- **LLM** — Llama 3.3 70B via Groq API
-- **Frontend** — Vanilla HTML/CSS/JS
+- **Backend** - FastAPI, PyMuPDF, BM25
+- **LLM** - Llama 3.3 70B via Groq API
+- **Frontend** - Vanilla HTML/CSS/JS
 
 ## Setup
 1. Clone the repo
@@ -21,6 +21,6 @@ A Retrieval-Augmented Generation (RAG) app that answers questions strictly based
 5. Open `http://localhost:8000`
 
 ## Notes
-- Only answers from uploaded PDFs — no general knowledge
+- Only answers from uploaded PDFs - no general knowledge
 - Scanned PDFs (image-based) may not extract properly
-- Documents are stored in memory — cleared on server restart
+- Documents are stored in memory - cleared on server restart
