@@ -2,6 +2,8 @@
 
 A Retrieval-Augmented Generation (RAG) app that answers questions strictly based on uploaded PDF documents. Built with FastAPI, BM25, and Groq (Llama 3.3).
 
+<img width="1906" height="909" alt="image" src="https://github.com/user-attachments/assets/ee55730c-c26b-4677-9747-208462c29ea6" />
+
 ## How it works
 1. Upload a PDF
 2. Text is extracted and split into chunks
